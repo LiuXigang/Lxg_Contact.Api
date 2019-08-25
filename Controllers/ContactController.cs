@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Contact.API.Models;
 using Contact.API.Repository;
 using Contact.API.Services;
+using Contact.API.ViewModel;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Contact.API.Controllers
@@ -14,15 +15,64 @@ namespace Contact.API.Controllers
     [ApiController]
     public class ContactController : BaseController
     {
-        private IContactApplyRequestRepository _contactApplyRequestRepository;
-        private IUserService _userService;
+        private readonly IContactApplyRequestRepository _contactApplyRequestRepository;
+        private readonly IContactRepository _contactRepository;
+        private readonly IUserService _userService;
 
-        public ContactController(IContactApplyRequestRepository contactApplyRequestRepository
-            , IUserService userService)
+        public ContactController(
+            IContactApplyRequestRepository contactApplyRequestRepository
+            , IUserService userService
+            , IContactRepository contactRepository)
         {
             _contactApplyRequestRepository = contactApplyRequestRepository;
             _userService = userService;
+            _contactRepository = contactRepository;
         }
+        #region
+
+        /// <summary>
+        /// 获取好友申请列表
+        /// </summary>
+        /// <returns></returns>
+        [HttpGet]
+        [Route("")]//contact
+        public async Task<List<Models.Contact>> GetContacts(CancellationToken cancellationToken)
+        {
+            var requests = await _contactRepository.GetContactsAsync(UserIdentity.UserId, cancellationToken);
+            //TBD log  if is empty
+
+            return requests;
+        }
+        /// <summary>
+        /// 获取好友申请列表   
+        /// </summary>
+        /// <returns></returns>
+        [HttpGet]
+        [Route("{userId}")]//contact
+        public async Task<List<Models.Contact>> GetContacts(int userId, CancellationToken cancellationToken)
+        {
+            var requests = await _contactRepository.GetContactsAsync(userId, cancellationToken);
+            //TBD log  if is empty
+
+            return requests;
+        }
+
+        /// <summary>
+        /// 用户给好友打标签：给指定用户的 指定好友打标签
+        /// </summary>
+        /// <returns></returns>
+        [HttpPut]
+        [Route("tag")]
+        public async Task<IActionResult> TagContact([FromBody]TagContactViewModel tagContactViewModel)
+        {
+            var result = await _contactRepository
+                .TagsContactAsync(UserIdentity.UserId, tagContactViewModel.contactId, tagContactViewModel.Tags, new CancellationToken());
+            //TBD log  if is empty
+
+            return result ? Ok() : (IActionResult)BadRequest();
+        }
+
+        #endregion
 
         #region   好友申请
 
@@ -70,6 +120,46 @@ namespace Contact.API.Controllers
             return Ok();
         }
 
+        /// <summary>
+        /// 通过好友申请请求
+        /// </summary>
+        /// <param name="applierId">申请人Id</param>
+        /// <returns></returns>
+        [HttpPut]
+        [Route("apply-request/{applierId}")]
+        public async Task<IActionResult> ApprovalApplyRequest(int applierId, CancellationToken cancellationToken)
+        {
+
+            //获取 当前上下文的用户  和申请人的  信息
+            var user = await _userService.GetBaseUserInfoAsync(UserIdentity.UserId, cancellationToken);
+            var applier = await _userService.GetBaseUserInfoAsync(applierId, cancellationToken);
+            //当前上下文的用户id 添加好友
+            await _contactRepository.AddContactAsync(user.UserId, new Dto.BaseUserInfo
+            {
+                Avatar = applier.Avatar,
+                Company = applier.Company,
+                Name = applier.Name,
+                Title = applier.Title,
+                UserId = applier.UserId
+            }, cancellationToken);
+
+            //对方好友也要添加当前用户作为好友
+            await _contactRepository.AddContactAsync(applierId, new Dto.BaseUserInfo
+            {
+                Avatar = user.Avatar,
+                Company = user.Company,
+                Name = user.Name,
+                Title = user.Title,
+                UserId = user.UserId
+            }, cancellationToken);
+
+            var result = await _contactApplyRequestRepository.ApprovalAsync(UserIdentity.UserId, applierId, new CancellationToken());
+            if (!result)
+            {
+                return BadRequest();
+            }
+            return Ok();
+        }
 
         #endregion
     }

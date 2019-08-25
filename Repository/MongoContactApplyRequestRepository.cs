@@ -14,14 +14,32 @@ namespace Contact.API.Repository
         private ContactContext _context;
         public MongoContactApplyRequestRepository(ContactContext context) => _context = context;
 
-        public Task<bool> AddRequestAsync(ContactApplyRequest request, CancellationToken cancellationToken)
+        public async Task<bool> AddRequestAsync(ContactApplyRequest request, CancellationToken cancellationToken)
         {
-            throw new NotImplementedException();
+            //声明是否重复的filterdefinition 和 updatedefinition
+            var filter = Builders<ContactApplyRequest>.Filter
+                .Where(n => n.UserId == request.UserId && n.ApplierId == request.ApplierId);
+            var count = await _context.ContactApplyRequests.CountDocumentsAsync(filter);
+            if (count > 0)
+            {
+                var update = Builders<ContactApplyRequest>.Update.Set(r => r.ApplyTime, DateTime.Now);
+                var result = await _context.ContactApplyRequests.UpdateOneAsync(filter, update);
+                return result.MatchedCount == result.ModifiedCount && result.ModifiedCount == 1;
+            }
+            await _context.ContactApplyRequests.InsertOneAsync(request, null, cancellationToken);
+            return true;
         }
 
-        public Task<bool> ApprovalAsync(int userId, int applierId, CancellationToken cancellationToken)
+        public async Task<bool> ApprovalAsync(int userId, int applierId, CancellationToken cancellationToken)
         {
-            throw new NotImplementedException();
+            var filter = Builders<ContactApplyRequest>.Filter
+                .Where(r => r.UserId == userId && r.ApplierId == applierId);
+            var update = Builders<ContactApplyRequest>.Update
+                .Set(r => r.ApplyTime, DateTime.Now)
+                .Set(r => r.HandleTime, DateTime.Now)
+                .Set(r => r.Approvaled, 1);
+            var result = await _context.ContactApplyRequests.UpdateOneAsync(filter, update);
+            return result.MatchedCount == result.ModifiedCount && result.ModifiedCount == 1;
         }
 
         public async Task<List<ContactApplyRequest>> GetRequestListAsync(int userId, CancellationToken cancellationToken)
