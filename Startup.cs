@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Contact.API.Data;
 using Contact.API.Dto;
+using Contact.API.IntegrationEvents.EventHandle;
 using Contact.API.Repository;
 using Contact.API.Services;
 using Microsoft.AspNetCore.Builder;
@@ -38,6 +39,16 @@ namespace Contact.API
             services.AddScoped<IContactRepository, MongoContactRepository>();
             services.AddScoped<IContactApplyRequestRepository, MongoContactApplyRequestRepository>();
 
+            services.AddScoped<UserProfileChangedEventHandler>();
+            #endregion
+
+            #region cap
+            services.AddCap(options =>
+            {
+                options.UseMySql(Configuration.GetConnectionString("DefaultConnection"))
+                    .UseRabbitMQ("localhost")
+                    .UseDashboard();
+            });
             #endregion
         }
 

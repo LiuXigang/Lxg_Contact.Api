@@ -6,6 +6,9 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="DotNetCore.CAP" Version="2.5.1" />
+    <PackageReference Include="DotNetCore.CAP.MySql" Version="2.5.1" />
+    <PackageReference Include="DotNetCore.CAP.RabbitMQ" Version="2.5.1" />
     <PackageReference Include="Microsoft.AspNetCore.App" />
     <PackageReference Include="Microsoft.AspNetCore.Razor.Design" Version="2.2.0" PrivateAssets="All" />
     <PackageReference Include="MongoDB.Driver" Version="2.9.1" />
